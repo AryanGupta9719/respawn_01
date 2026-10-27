@@ -1,0 +1,25 @@
+name: Test and build
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check tracked files for local secrets
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env($|\.)|node_modules/|dist/)' | grep -vE '(^|/)\.env\.example$'; then
+            echo 'Unexpected env, dependency or build file tracked.'
+            exit 1
+          fi

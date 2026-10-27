@@ -1,0 +1,8 @@
+{
+  "name": "Respawn",
+  "description": "A calm placement-preparation companion for Indian college students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

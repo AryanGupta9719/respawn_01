@@ -1,0 +1,16 @@
+{
+  "name": "Respawn",
+  "date": "2026-10-27",
+  "commit": "5807b3aed33939f31c81dacf8aa46ad729e05054",
+  "problemCount": 196,
+  "resourceLinks": 200,
+  "practiceLinks": 176,
+  "referenceLinks": 24,
+  "privateStudyDataIncluded": false,
+  "credentialsIncluded": false,
+  "pendingDrafts": [
+    "ASSUMPTIONS.md",
+    "docs/MVP_V1_PROPOSAL.md"
+  ],
+  "verification": "npm test and npm run build passed; UI checked: 200 links in bank, links in Today and task dialog. Real Supabase/provider credentials not tested."
+}

@@ -1,0 +1,217 @@
+# BUILD PROMPT — [WEBSITE NAME] (MVP v1)
+
+You are a senior full-stack engineer and product-minded designer. Build the MVP of the web app described below. Read the WHOLE prompt before writing any code. If anything is unclear or conflicts, ask me before guessing.
+
+Use [WEBSITE NAME] everywhere for the product name until I give the final name. Keep it in one config constant so I can change it in one place.
+
+==================================================
+PART A — UNDERSTAND THE PRODUCT FIRST
+==================================================
+
+## A1. What this is
+[WEBSITE NAME] is a placement-prep companion for Indian college students (B.Tech/BCA/MCA, mostly Tier 2/3 colleges) preparing for entry-level software developer jobs.
+
+It is NOT a content platform. It does NOT host problems, videos, or solutions.
+Students already follow a sheet (Striver A2Z, our own 196-question DSA bank, etc.). We add the layer on top: daily plan, revision, honest timeline math, recovery after missed days, and small study groups.
+
+## A2. The USP (every decision must serve this)
+"Fell behind on placement prep? You're not starting over. [WEBSITE NAME] rebuilds a realistic plan from today, using the sheet you already follow."
+
+Three pillars:
+1. Comeback, not perfection — missing days is normal; the app makes restarting easy and guilt-free.
+2. Honest math — show available hours vs required hours vs shortfall. Never fake reassurance.
+3. Works with your sheet — problems link out to their original pages.
+
+## A3. Who it's for
+Most important user: the student who has stopped preparing for a few days/weeks and is close to giving up.
+Also: beginners, students who studied and forgot, students juggling college, students who keep dropping off.
+
+## A4. Product principles (non-negotiable)
+- Never promise placement or imply finishing tasks guarantees success.
+- Never shame. No punishing streak resets. No artificial urgency.
+- Never hide backlog. Moved/deferred work stays visible. Nothing is marked complete unless the student marked it.
+- Never invent problems, links, company question patterns, hiring dates, or eligibility rules.
+- Never show a "placement readiness %" or claim to measure mastery. Completion is self-reported and labelled so.
+- Recovery/rescheduling is FREE. No paywalls anywhere in this MVP. No payment code.
+- Mobile first. Most users are on phones.
+
+==================================================
+PART B — TECH SETUP
+==================================================
+
+## B1. Stack (default — tell me before changing)
+- Frontend: React + TypeScript + Vite, Tailwind CSS.
+- Backend/auth/database: Supabase (Postgres, Auth with email magic link + Google, Row Level Security on every table).
+- No AI calls in this MVP. All planning logic is deterministic TypeScript in a separate, unit-tested module (/src/engine).
+- Hosting: any static host (Vercel/Netlify).
+
+## B2. Existing prototype
+I have an older static HTML/CSS/JS prototype with localStorage, a 196-question DSA bank, rule-based scheduling, recovery screens, a cozy theme and a capybara mascot (Kapi). I will share files if useful. Reuse its ideas and the question bank data; do not copy its architecture.
+
+## B3. Content data rules
+- Sheets are stored as JSON seed files in /data/sheets/*.json.
+- I will provide the 196-question bank (IDs + titles + topics + links). Preserve IDs and titles exactly.
+- For Striver A2Z or other public sheets: create the file structure and loader, but DO NOT generate or guess the problem list yourself. Leave a placeholder file with 3 sample entries clearly marked "SAMPLE – replace with verified data". I will fill it.
+- Each sheet item schema:
+  { id, sheetId, order, title, topic, subtopic, difficulty ("easy"|"medium"|"hard"),
+    estMinutes, prerequisites: [ids], url }
+- If estMinutes is missing, default by difficulty: easy 25, medium 45, hard 70 (configurable constant).
+
+==================================================
+PART C — MVP FEATURES (build ONLY these)
+==================================================
+
+## C1. Placement Reality Check (landing page, NO login)
+Inputs (one per screen, big tappable options, total < 60 seconds):
+1. "Roughly when do companies start coming to your campus?"
+   → month + year picker | a range (from–to months) | "Not sure yet"
+2. "On a normal day, how much time can you give?"
+   → 30 min / 1 hr / 2 hrs / 3+ hrs / custom minutes
+3. "Where are you right now?"
+   → Starting from scratch / Know some basics / Studied before but forgot / Mostly ready, need revision
+4. "Which sheet do you want to follow?"
+   → [WEBSITE NAME] 196 DSA bank / Striver A2Z / (others greyed "coming soon")
+5. "What role are you aiming for?" (optional) → SDE / Not decided
+
+Output screen:
+- Available study hours before hiring starts (use earlier end of a range; say so).
+- Estimated hours needed for the chosen scope (from engine, includes revision time).
+- Shortfall or surplus, in plain words.
+- "What we'd prioritise first" (top topics) and "What would be deferred".
+- If "Not sure yet": show a 2-week rolling plan and label the timeline "provisional".
+- Example copy for a shortfall: "Big ambition. Tiny calendar. You have ~45 hours; this scope needs ~110. We'll start with the foundations that matter most."
+- Buttons: "Save my plan" (→ signup) and "Share my reality check".
+
+Share card:
+- Generate a PNG (1080×1920 story size, and 1080×1080) with the numbers, Kapi, and the site name.
+- Share via Web Share API; fallback to download + "Share to WhatsApp" link.
+- No personal data on the card except the numbers.
+
+## C2. Auth + profile
+- Supabase Auth (magic link + Google).
+- After signup, carry over the Reality Check answers automatically.
+- Profile fields: name, college (free text), graduation year, hiring estimate, daily minutes, weekly unavailable days, level, sheet, banter preference, reduced motion, theme.
+
+## C3. Planning engine (/src/engine — deterministic, pure functions, unit tested)
+Inputs: sheet items, student level, daily minutes per weekday, unavailable dates, hiring date/estimate, completed items + attempt history, current date.
+
+Rules:
+1. Capacity = sum of available minutes from today to hiring date (or 14 days if unknown).
+2. Order items by sheet order, respecting prerequisites.
+3. Level adjustments:
+   - "Studied but forgot"/"Mostly ready": first pass on already-familiar basics uses shorter revision-style tasks (60% of estMinutes), labelled "Refresh", not "New".
+   - "Starting from scratch": never label first-time learning as revision.
+4. Short timeline (capacity < required): keep representative problems per topic (first easy + first medium per subtopic), defer extra variations. Never spend the whole plan on basics before reaching arrays, strings and hashing.
+5. Revision: after an item is completed, schedule revisions at +1, +3, +7, +14 days (constant, configurable). Revision costs ~40% of estMinutes (min 10). Revision consumes real capacity — never stack it on a full day.
+6. Daily fill: due revision first (if fits), then next new item(s) up to the day's minutes. Leave ~10% buffer as catch-up space.
+7. Output: a dated schedule + a list of deferred items + summary numbers (available, required, shortfall).
+8. Never mark anything complete. Never delete completed history. Never create duplicate tasks.
+9. Validation function that checks every generated plan: no day over capacity, prerequisites respected, no duplicates, completed items preserved, dates valid. If validation fails, throw in dev and fall back to a simpler sequential plan in prod.
+
+Write unit tests for: shortfall case, unknown hiring date, missed-5-days recovery, revision spacing, prerequisite order, light-day choice.
+
+Save the accepted plan to the database. Do NOT regenerate on every login. Regenerate only on a trigger (see C6).
+
+## C4. Today screen (home after login)
+Shows only:
+- Greeting + Kapi.
+- ONE main task card: title, topic, est. time, "Open problem ↗" (external link), "Start (2 min)" button.
+- Due revision card(s), if any.
+- Day type selector: Normal day / Short session / Revision only / Take today off.
+- Pod strip: who in your pod studied today (C7).
+
+Task completion flow: tap "Done" → quick feedback: "Solved on my own" / "Needed help" / "Couldn't solve".
+- Solved on my own → normal revision schedule.
+- Needed help → next revision moved earlier (+1, +2, +5…).
+- Couldn't solve → mark "attempted", schedule retry in 2 days, and if it has a prerequisite not completed, suggest it.
+- Optional field: paste submission link (stored, labelled "proof added").
+Copy example: "One down. Smooth."
+
+Short session: ask "How many minutes?" (10/20/30/custom) → pick due revision first, else the smallest suitable pending item. If the main task moves, show "Moved to Thu, 30 Oct".
+If the student chooses short sessions 4+ times in 7 days, show a gentle note: "Lots of short days lately. Want to block one longer session this week?" with a date picker. Never auto-change their hours.
+
+Take today off: no guilt copy ("Rest is part of the plan."). Tasks shift; show what moved.
+
+## C5. Plan screen
+- Week view (default) + list of upcoming days.
+- Deferred items list (always visible, with "Bring back" button).
+- Summary bar: done / revisions done / topics covered / deferred. Show "unique problems solved" separately from "revision attempts".
+- Edit availability (minutes per weekday, unavailable dates), hiring estimate, sheet. Any edit triggers replan preview (C6).
+
+## C6. Comeback / "Restart from today" (most important flow — polish this)
+Triggers: 2+ days with no activity on scheduled days, availability change, hiring date change, sheet change, assessment date added.
+
+When the student returns after missing 2+ scheduled days:
+1. Screen 1 — no guilt: Kapi + "Life happened. Let's adjust." (or plain version with Less banter: "You missed a few days. Let's update your plan.")
+2. Screen 2 — tiny win first: one small task that fits 10–15 minutes (prefer due revision). "Start" or "Skip to plan".
+3. Screen 3 — replan preview: what moved, what was deferred, what stayed; new available vs required hours; honest note if the shortfall grew.
+4. Buttons: "Save changes" / "Adjust plan" (edit availability first).
+Rules: never dump all missed tasks onto tomorrow; protect prerequisites and due revision; use buffer days; preserve all history.
+
+## C7. Study Pods
+- Create pod (name, max 5 members) → invite link (copy + "Share to WhatsApp").
+- Join via link (requires login).
+- Pod view shows only: member first names, studied today ✓ / not yet, and pod count of "days this week at least one member studied".
+- No scores, no ranking, no problem counts shown to others.
+- One gentle nudge in-app: "2 of 4 studied today. Join them?"
+- Leave pod / mute pod anytime.
+- RLS: only pod members can read pod data.
+
+## C8. Reminders (MVP-simple)
+- Opt-in only. Student picks one daily time.
+- MVP: web push (if supported) or email via Supabase function. Add a placeholder interface for WhatsApp so it can be added later — do NOT integrate WhatsApp now.
+- Max 1 reminder/day. Comeback reminders after 2 and 5 missed days, then stop.
+
+## C9. Weekly reflection
+Every Sunday (or first visit after), a small card: what got done, what moved, focus for next week (top 1–2 topics). Plain numbers, no score.
+
+## C10. Settings
+Less banter toggle (swaps playful copy for plain copy — store copy in one strings file with both variants), reduced motion, light/night theme, reminder time, export my data (JSON), delete account.
+
+==================================================
+PART D — DESIGN
+==================================================
+- Mood: calm, cozy, supportive study companion.
+- Colours (CSS variables): cream background #FBF7F0, sage primary #8FA98F, dusty lavender #B8A9C9, soft peach #F4C7AB, ink text #2E2A27. Night mode: deep warm charcoal background, muted versions of the same accents. Check contrast meets WCAG AA.
+- Typography: soft serif for headings (e.g. Fraunces), clean sans for body (e.g. Inter). Body ≥16px on mobile.
+- Spacious layout, rounded cards, large tap targets (≥44px), gentle transitions; respect prefers-reduced-motion.
+- Kapi the capybara: simple original SVG, a few static poses (happy, calm, cheering, resting). No animation required in MVP.
+- Clear button labels: "Start", "View tasks", "Adjust plan", "Save changes", "Try again".
+- Humour is occasional and always paired with the plain fact.
+
+==================================================
+PART E — DATA MODEL (Supabase, RLS on all)
+==================================================
+profiles, sheets (static/seeded), sheet_items (seeded), plans (id, user_id, created_at, inputs_json, summary_json, is_active), plan_days (plan_id, date, task list json), attempts (user_id, item_id, date, result, proof_url, is_revision), revisions (user_id, item_id, due_date, step, status), deferred_items, pods, pod_members, daily_activity (user_id, date, studied bool), reminders_settings.
+Propose the exact schema and RLS policies to me before creating them.
+
+==================================================
+PART F — DO NOT BUILD (out of scope)
+==================================================
+- Payments, pricing pages, paywalls.
+- AI/LLM features of any kind.
+- SQL, aptitude, OS, DBMS, CN content.
+- Company-specific plans or question frequencies.
+- Leaderboards, public profiles, readiness scores.
+- Hosting problem statements or solutions.
+- WhatsApp API integration.
+- Admin dashboards or college (B2B) features.
+
+==================================================
+PART G — HOW TO WORK
+==================================================
+Phase 1: Restate the product in your own words (max 10 bullets), list open questions, propose schema + folder structure. WAIT for my approval.
+Phase 2: Build the planning engine + tests. Show me test results.
+Phase 3: Reality Check + share card.
+Phase 4: Auth, Today screen, completion flow.
+Phase 5: Plan screen + Comeback flow.
+Phase 6: Pods, reminders, weekly reflection, settings.
+After each phase: summarise what was built, what's left, any assumptions made. Keep assumptions in an ASSUMPTIONS.md file.
+
+Acceptance criteria for MVP:
+- A new visitor completes the Reality Check in under 60 seconds on a phone and can share the card.
+- A student who misses 5 days sees the comeback flow, gets one small task, and sees exactly what moved and what was deferred.
+- No day in any generated plan exceeds the student's available minutes.
+- Completed history is never lost after any replan.
+- Pod members see only studied/not-studied, nothing else.
+- Lighthouse mobile performance and accessibility ≥ 90.
